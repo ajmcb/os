@@ -11,10 +11,10 @@ void read_input(char*);
 int main() {
   char *command = NULL;
   int read = 0;
-  char *commandArray[read];
+  char *commandArray[1024];
   char *cmd;
   char *savePtr;
-  char first[sizeof(cmd)+1];
+  char *first;
   char ex[5];
   char cd[3];
   char pwd[4];
@@ -22,11 +22,12 @@ int main() {
   char *wd;
   size_t len = 0;
   int i = 0;
+  int j = 0;
   int success = -1;
   int exitCode = 0;
   pid_t child;
   pid_t w;
-  int *childStatus;
+  int childStatus = 0;
 
   signal(SIGINT, signal_handler);
 
@@ -49,18 +50,20 @@ int main() {
         continue;
       }
 
-      //first = strtok(command, " ");
-      cmd = strtok_r(command, " ", &savePtr);
-      strcpy(first, cmd);
+      first = strtok_r(command, " ", &savePtr);
+      cmd = strtok_r(NULL, " ", &savePtr);
+      //strcpy(first, cmd);
       printf("First: %s\n", first);
       printf("Rest: ");
 
       while (cmd != NULL) {
-        commandArray[i++] = cmd;
-        printf(cmd);
-        cmd = strtok_r(NULL, " ", &savePtr); //_r
+        commandArray[i] = cmd;
+        cmd = strtok_r(NULL, " ", &savePtr);
+        i++;
       }
 
+
+      printf("\n");
       if (strcmp(first, ex) == 0) {
             printf("Exiting...\n");
             break;
@@ -85,17 +88,19 @@ int main() {
               exitCode = EXIT_FAILURE;
               break;
             } else {
-              w = wait(childStatus);
+              w = wait(&childStatus);
+              while (w != child) {
+                ;
+              }
               if (w == -1) {
-                printf("Error in child process. Exiting...");
+                printf("Error in child process. Exiting...\n");
                 exitCode = EXIT_FAILURE;
                 break;
               }
 
               if (WIFEXITED(childStatus)) {
-                printf("Child process terminated. Exiting...");
+                //printf("Child process terminated. Exiting...\n");
                 exitCode = WEXITSTATUS(childStatus);
-                break;
               }
             }
       }
