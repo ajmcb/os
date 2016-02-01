@@ -11,13 +11,13 @@ int internalCommands(char **tokenarray);
 int externalCommands(char **tokenarray);
 void signalHandler(int sign);
 void beginSignals(void);
+void exitProgram(int exitCode);
 
 int main() {
     char *command = NULL;
     char **tokenised;
     int internal = -1;
     int external = -1;
-    int j = 0;
 
     while(1) {
         beginSignals();
@@ -26,9 +26,14 @@ int main() {
 
         command = readInput();
 
+        if (command == NULL) {
+            continue;
+        }
+
         tokenised = tokeniseCommand(command);
 
         internal = internalCommands(tokenised);
+
         if (internal == 0) {
             free(command);
             continue;
@@ -36,9 +41,15 @@ int main() {
 
         external = externalCommands(tokenised);
 
+        if (external == -1) {
+            printf("No such file or directory.\n");
+            continue;
+        }
+
         free(command);
 
     }
+
     exit(0);
     return 0;
 }
@@ -62,8 +73,10 @@ char *readInput(void) {
 
     read = getline(&input, &length, stdin);
 
-    if (read <= 1) {
+    if (read < 1) {
         exit(0);
+    } else if (read == 1) {
+        return NULL;
     }
 
     input[read - 1] = 0;
@@ -112,12 +125,10 @@ int internalCommands(char **tokenarray) {
         if (third != NULL) {
             printf("Too many arguments.\n");
         } else  if (second == NULL) {
-            printf("Exiting with exit code %d...\n", exitCode);
-            exit(exitCode);
+            exitProgram(exitCode);
         } else {
             exitCode = strtol(second, &endptr, 10);
-            printf("Exiting with exit code %d...\n", exitCode);
-            exit(exitCode);
+            exitProgram(exitCode);
         }
     } else if (strcmp(first, cd) == 0) {
         if (third != NULL) {
@@ -150,8 +161,6 @@ int internalCommands(char **tokenarray) {
     } else {
         return -1;
     }
-
-    return 0;
 }
 
 int externalCommands(char **tokenarray) {
@@ -198,15 +207,18 @@ void signalHandler(int sign) {
 }
 
 void beginSignals(void) {
-    struct sigaction new_sigact;
-    struct sigaction old_sigact;
+    struct sigaction sigact;
 
-    sigfillset(&new_sigact.sa_mask);
-    new_sigact.sa_handler = SIG_IGN;
-    new_sigact.sa_flags = 0;
+    sigact.sa_handler = signalHandler;
+    sigact.sa_flags = SA_RESTART;
+    sigfillset(&sigact.sa_mask);
 
-    if (sigaction(SIGINT, &new_sigact, &old_sigact) == 0 && old_sigact.sa_handler != SIG_IGN) {
-        new_sigact.sa_handler = signalHandler;
-        sigaction(SIGINT, &new_sigact, 0);
+    if (sigaction(SIGINT, &sigact, 0) == -1) {
+        printf("Could not catch SIGINT");
     }
+}
+
+void exitProgram(int exitCode) {
+    printf("Exiting with exit code %d...\n", exitCode);
+    exit(exitCode);
 }
